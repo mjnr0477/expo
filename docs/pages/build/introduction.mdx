@@ -1,4 +1,130 @@
----
+booker-app/
+├── App.js
+├── package.json
+├── app.json
+├── babel.config.js
+├── screens/
+│   ├── HomeScreen.js
+│   ├── LiveScreen.js
+│   ├── EntertainmentScreen.js
+│   └── ProfileScreen.js
+├── components/
+│   ├── Header.js
+│   ├── BookCard.js
+│   └── LiveCard.js
+└── assets/
+    ├── logo.png
+    └── icon.png{
+  "name": "booker-app",
+  "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "expo": "~51.0.0",
+    "expo-status-bar": "~1.12.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.73.0",
+    "react-native-web": "~0.19.10",
+    "@react-navigation/native": "^6.1.7",
+    "@react-navigation/bottom-tabs": "^6.5.11"
+  }
+}module.exports = function(api) {
+  api.cache(true);
+  return {
+    presets: ['babel-preset-expo']
+  };
+};import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import HomeScreen from './screens/HomeScreen';
+import LiveScreen from './screens/LiveScreen';
+import EntertainmentScreen from './screens/EntertainmentScreen';
+import ProfileScreen from './screens/ProfileScreen';
+
+const Tab = createBottomTabNavigator();
+
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Tab.Navigator screenOptions={{ headerShown: false }}>
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Live" component={LiveScreen} />
+        <Tab.Screen name="Entertainment" component={EntertainmentScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export default function HomeScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>📚 Booker Home</Text>
+      <Text style={styles.subtitle}>Discover books and wisdom from thinkers.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  title: { fontSize: 26, fontWeight: 'bold' },
+  subtitle: { marginTop: 10, fontSize: 16, color: '#555' }
+});import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export default function LiveScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>🔴 Live Zone</Text>
+      <Text style={styles.subtitle}>Watch or host live sessions here.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  title: { fontSize: 26, fontWeight: 'bold' },
+  subtitle: { marginTop: 10, fontSize: 16, color: '#555' }
+});import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export default function EntertainmentScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>🎬 Entertainment</Text>
+      <Text style={styles.subtitle}>Music, podcasts, and creative stories.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  title: { fontSize: 26, fontWeight: 'bold' },
+  subtitle: { marginTop: 10, fontSize: 16, color: '#555' }
+});import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export default function ProfileScreen() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>👤 Profile</Text>
+      <Text style={styles.subtitle}>Manage your account and saved content.</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  title: { fontSize: 26, fontWeight: 'bold' },
+  subtitle: { marginTop: 10, fontSize: 16, color: '#555' }
+});---
 title: EAS Build
 sidebar_title: Introduction
 hideTOC: true
