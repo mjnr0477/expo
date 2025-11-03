@@ -1,128 +1,432 @@
----
-title: Reference
-hideTOC: true
----
-
-import { BookOpen02Icon } from '@expo/styleguide-icons/outline/BookOpen02Icon';
-
-import { BoxLink } from '~/ui/components/BoxLink';
-import { Collapsible } from '~/ui/components/Collapsible';
-import RedirectNotification from '~/ui/components/RedirectNotification';
+import React, { useState, useRef } from "react";
 import {
-  AndroidIOSCompatibilityTable,
-  ReactNativeCompatibilityTable,
-} from '~/ui/components/SDKTables';
-import { Terminal } from '~/ui/components/Snippet';
-import { CODE } from '~/ui/components/Text';
+  SafeAreaView,
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Image,
+  TextInput,
+  Modal,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  Alert,
+} from "react-native";
 
-<RedirectNotification>
-  The page you are looking for does not exist in this SDK version. It may have been deprecated or
-  added to a newer SDK version.
-</RedirectNotification>
+/*
+  Pulse - Stage 1 (Single-file prototype)
+  - Bottom tabs: Home / Chat / Create / Trusted / Profile
+  - Local state only (works immediately in Snack + Expo Go)
+  - Add posts, like, chat (local), add trusted users
+*/
 
-The Expo SDK provides access to device and system functionality such as contacts, camera, gyroscope, GPS location, and so on, in the form of packages. You can install any Expo SDK package using the `npx expo install` command. For example, three different packages are installed using the following command:
+const SAMPLE_POSTS = [
+  {
+    id: "1",
+    author: "Amina",
+    avatar: "https://i.pravatar.cc/150?img=12",
+    text: "Feeling alive today ✨",
+    image: "https://picsum.photos/600/400?random=1",
+    likes: 3,
+  },
+  {
+    id: "2",
+    author: "Daniel",
+    avatar: "https://i.pravatar.cc/150?img=5",
+    text: "Morning run gave me clarity.",
+    image: "https://picsum.photos/600/400?random=2",
+    likes: 7,
+  },
+];
 
-<Terminal cmd={['$ npx expo install expo-camera expo-contacts expo-sensors']} />
+const SAMPLE_CHATS = [
+  {
+    id: "c1",
+    name: "Amina",
+    last: "See you later!",
+    messages: [
+      { id: "m1", fromMe: false, text: "Hey are you free tonight?" },
+      { id: "m2", fromMe: true, text: "Yes — let's meet at 7." },
+    ],
+  },
+  {
+    id: "c2",
+    name: "Daniel",
+    last: "Nice!",
+    messages: [{ id: "m1", fromMe: false, text: "Have you seen the new track?" }],
+  },
+];
 
-After installing one or more packages, you can import them into your JavaScript code:
+export default function App() {
+  const [tab, setTab] = useState("Home");
+  const [posts, setPosts] = useState(SAMPLE_POSTS);
+  const [chats, setChats] = useState(SAMPLE_CHATS);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [trusted, setTrusted] = useState(["Amina"]);
+  const [createModal, setCreateModal] = useState(false);
 
-```js
-import { CameraView } from 'expo-camera';
-import * as Contacts from 'expo-contacts';
-import { Gyroscope } from 'expo-sensors';
-```
+  // Create post fields
+  const [postText, setPostText] = useState("");
+  const [postImage, setPostImage] = useState("");
 
-This allows you to write [`Contacts.getContactsAsync()`](./sdk/contacts#contactsgetcontactsasynccontactquery) and read the contacts from the device, read the gyroscope sensor to detect device movement, or start the phone's camera and take photos.
+  // Chat composer
+  const [chatText, setChatText] = useState("");
+  const chatScrollRef = useRef(null);
 
-## All Expo SDK packages work in any React Native app
+  // Profile
+  const [username, setUsername] = useState("You");
 
-Expo apps are React Native apps, so all Expo SDK packages work in any React Native app with the `expo` package installed and configured. The easiest way to create a React Native app with support for Expo SDK packages is to use `create-expo-app`. However, you can also add Expo SDK support to an existing React Native app with the `npx install-expo-modules` command.
-
-<Terminal
-  cmd={['# Create a project named my-app', '$ npx create-expo-app my-app --template bare-minimum']}
-  cmdCopy="npx create-expo-app my-app --template bare-minimum"
-/>
-
-<BoxLink
-  title="Install Expo SDK packages in existing React Native apps"
-  href="/bare/installing-expo-modules"
-  description={
-    <>
-      Learn more about configuring projects created with{' '}
-      <CODE>npx @react-native-community/cli@latest init</CODE> to Expo SDK packages.
-    </>
+  // Helpers
+  function toggleLike(postId) {
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, likes: p.likes + 1 } : p))
+    );
   }
-  Icon={BookOpen02Icon}
-/>
 
-<BoxLink
-  title="Use libraries"
-  description="Learn how to install Expo SDK packages in your project."
-  href="/workflow/using-libraries"
-  Icon={BookOpen02Icon}
-/>
+  function addPost() {
+    if (!postText.trim() && !postImage.trim()) {
+      Alert.alert("Empty post", "Write something or add an image URL.");
+      return;
+    }
+    const newPost = {
+      id: Date.now().toString(),
+      author: username,
+      avatar: `https://i.pravatar.cc/150?u=${username}`,
+      text: postText,
+      image: postImage || `https://picsum.photos/600/400?random=${Date.now() % 100}`,
+      likes: 0,
+    };
+    setPosts((p) => [newPost, ...p]);
+    setPostText("");
+    setPostImage("");
+    setCreateModal(false);
+    setTab("Home");
+  }
 
-## Using pre-release versions
+  function openChat(chatId) {
+    const c = chats.find((x) => x.id === chatId);
+    setSelectedChat(c || null);
+    setTab("ChatSingle");
+  }
 
-New Expo SDK versions are released three times each year. Between these releases, we publish pre-release versions of the `expo` package and all of the Expo SDK packages. Pre-releases are not considered stable and should only be used if you are comfortable with the risk of encountering bugs or other issues.
+  function sendMessage() {
+    if (!chatText.trim()) return;
+    if (!selectedChat) return;
+    const newMsg = { id: Date.now().toString(), fromMe: true, text: chatText };
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === selectedChat.id ? { ...c, messages: [...c.messages, newMsg], last: newMsg.text } : c
+      )
+    );
+    // update selectedChat locally too
+    setSelectedChat((prev) => ({ ...prev, messages: [...prev.messages, newMsg] }));
+    setChatText("");
+    // Small timeout to scroll (UI only)
+    setTimeout(() => {
+      try {
+        chatScrollRef.current?.scrollToEnd({ animated: true });
+      } catch (e) {}
+    }, 100);
+  }
 
-### Canary releases
+  function addTrusted(name) {
+    if (!name.trim()) return;
+    if (trusted.includes(name)) {
+      Alert.alert("Already trusted", `${name} is already in your trusted circle.`);
+      return;
+    }
+    setTrusted((t) => [name, ...t]);
+  }
 
-Canary releases represent a snapshot of the state of the `main` branch at the time they are published. Canary package versions include `-canary` in the name, along with the date and commit hash, such as `54.0.0-canary-20240418-8d74597`. To install the latest canary release:
+  function removeTrusted(name) {
+    setTrusted((t) => t.filter((x) => x !== name));
+  }
 
-<Terminal
-  cmd={[
-    '# Install the alpha version of expo and its related packages',
-    '$ npm install expo@canary && npx expo install --fix',
-  ]}
-  cmdCopy="npm install expo@canary && npx expo install --fix"
-/>
+  // UI components
+  const Header = ({ title }) => (
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>{title}</Text>
+      <Text style={styles.headerSub}>Pulse — feel, connect, create</Text>
+    </View>
+  );
 
-You can often use pre-release versions of individual packages with stable releases of the Expo SDK. There may occasionally be incompatibilities or other issues that arise in canary-quality releases. You may want to [silence dependency validation warnings](/more/expo-cli/#configuring-dependency-validation) if you opt in to the canary package and once you have verified that it works well for your use cases.
+  const FeedItem = ({ item }) => (
+    <View style={styles.post}>
+      <View style={styles.postHeader}>
+        <Image source={{ uri: item.avatar }} style={styles.avatar} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.postAuthor}>{item.author}</Text>
+          <Text style={styles.postTextSmall}>{new Date(parseInt(item.id, 10) || Date.now()).toLocaleString()}</Text>
+        </View>
+        <TouchableOpacity onPress={() => toggleLike(item.id)} style={styles.likeBtn}>
+          <Text>❤️ {item.likes}</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.postBodyText}>{item.text}</Text>
+      {item.image ? (
+        <Image source={{ uri: item.image }} style={styles.postImage} resizeMode="cover" />
+      ) : null}
+    </View>
+  );
 
-### Beta releases
+  const Home = () => (
+    <SafeAreaView style={styles.container}>
+      <Header title="Home" />
+      <FlatList
+        data={posts}
+        keyExtractor={(i) => i.id}
+        renderItem={FeedItem}
+        contentContainerStyle={{ padding: 12, paddingBottom: 120 }}
+        ListEmptyComponent={<Text style={{ padding: 20 }}>No posts yet — create one!</Text>}
+      />
+    </SafeAreaView>
+  );
 
-Before each Expo SDK release, we publish beta versions of the `expo` package and all of the Expo SDK packages. Beta releases are considered much more stable than canary releases, and we encourage developers to try them out on their apps and share their feedback. Beta releases use the `beta` tag on npm and follow the instructions in the related [changelog](https://expo.dev/changelog) post.
+  const ChatList = () => (
+    <SafeAreaView style={styles.container}>
+      <Header title="Chats" />
+      <FlatList
+        data={chats}
+        keyExtractor={(i) => i.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity style={styles.chatRow} onPress={() => openChat(item.id)}>
+            <Image source={{ uri: `https://i.pravatar.cc/150?u=${item.name}` }} style={styles.avatarSmall} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.chatName}>{item.name}</Text>
+              <Text style={styles.chatLast}>{item.last}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#eee", marginHorizontal: 12 }} />}
+      />
+    </SafeAreaView>
+  );
 
-## Each Expo SDK version depends on a React Native version
+  const ChatSingle = () => {
+    if (!selectedChat) return <ChatList />;
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header title={selectedChat.name} />
+        <View style={{ flex: 1, padding: 12 }}>
+          <FlatList
+            ref={chatScrollRef}
+            data={selectedChat.messages}
+            keyExtractor={(m) => m.id}
+            renderItem={({ item }) => (
+              <View style={[styles.chatBubble, item.fromMe ? styles.chatFromMe : styles.chatFromThem]}>
+                <Text style={{ color: item.fromMe ? "#fff" : "#000" }}>{item.text}</Text>
+              </View>
+            )}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        </View>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={styles.chatComposer}>
+            <TextInput
+              placeholder="Write a message..."
+              style={styles.chatInput}
+              value={chatText}
+              onChangeText={setChatText}
+            />
+            <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+              <Text style={{ color: "#fff" }}>Send</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  };
 
-<ReactNativeCompatibilityTable />
+  const Trusted = () => {
+    const [newName, setNewName] = useState("");
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header title="Trusted" />
+        <View style={{ padding: 12 }}>
+          <Text style={{ marginBottom: 6 }}>Add trusted person (name)</Text>
+          <View style={{ flexDirection: "row" }}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="e.g. Amina"
+              value={newName}
+              onChangeText={setNewName}
+            />
+            <TouchableOpacity
+              onPress={() => {
+                addTrusted(newName.trim());
+                setNewName("");
+              }}
+              style={[styles.primaryBtn, { marginLeft: 8, alignSelf: "center" }]}
+            >
+              <Text style={{ color: "#fff" }}>Add</Text>
+            </TouchableOpacity>
+          </View>
 
-### Additional information
+          <Text style={{ marginTop: 18, marginBottom: 6 }}>Your trusted circle</Text>
+          {trusted.length === 0 ? (
+            <Text>No one yet.</Text>
+          ) : (
+            trusted.map((t) => (
+              <View key={t} style={styles.trustedRow}>
+                <Text>{t}</Text>
+                <TouchableOpacity onPress={() => removeTrusted(t)}>
+                  <Text style={{ color: "#c00" }}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  };
 
-<Collapsible summary="Expo SDK policy for tracking React Native releases">
+  const Profile = () => (
+    <SafeAreaView style={styles.container}>
+      <Header title="Profile" />
+      <View style={{ padding: 20 }}>
+        <Image source={{ uri: `https://i.pravatar.cc/150?u=${username}` }} style={styles.bigAvatar} />
+        <Text style={{ fontSize: 20, fontWeight: "700", marginTop: 12 }}>{username}</Text>
+        <Text style={{ marginTop: 6, color: "#666" }}>Pulse member</Text>
 
-- Expo SDK versions are released three times each year, and each Expo SDK release targets a single React Native version. This is typically the latest stable version at the time of the release.
-- The release cadence of React Native has varied over its history and it is currently on pace for six releases in 2025. While on this cadence, you can expect that there will be an Expo SDK version for every second React Native release.
-- Pre-release versions of the upcoming Expo SDK will include support for the latest version of React Native quickly, usually the same day it is released. A member of the Expo SDK team works on the React Native releases team for each release, and is responsible for continuously updating the React Native version in the Expo repository, verifying compatibility, and reporting regressions back to the team at Meta.
+        <View style={{ marginTop: 20 }}>
+          <Text>Edit display name</Text>
+          <TextInput style={styles.input} value={username} onChangeText={setUsername} />
+        </View>
 
-</Collapsible>
+        <View style={{ marginTop: 20 }}>
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={() => Alert.alert("Profile saved", "Your display name was updated.")}
+          >
+            <Text style={{ color: "#fff" }}>Save Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
 
-<Collapsible summary=" Why not release a new Expo SDK version immediately for every React Native release?">
+  // Main render
+  return (
+    <View style={{ flex: 1, paddingTop: StatusBar.currentHeight || 0 }}>
+      {tab === "Home" && <Home />}
+      {tab === "Chat" && <ChatList />}
+      {tab === "ChatSingle" && <ChatSingle />}
+      {tab === "Trusted" && <Trusted />}
+      {tab === "Profile" && <Profile />}
 
-At Expo, we have found that releasing three major version provides a good balance of stability and innovation for developers depending on our open source tools. Expo and Meta work closely together on releases, and we will keep improving our processes to get the latest Expo and React Native features to you as quickly as possible.
+      <Modal visible={createModal} animationType="slide" onRequestClose={() => setCreateModal(false)}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={{ padding: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700" }}>Create Post</Text>
+            <TextInput
+              placeholder="What's on your pulse?"
+              value={postText}
+              onChangeText={setPostText}
+              multiline
+              style={[styles.input, { height: 100, marginTop: 12 }]}
+            />
+            <TextInput
+              placeholder="Optional image URL"
+              value={postImage}
+              onChangeText={setPostImage}
+              style={[styles.input, { marginTop: 12 }]}
+            />
+            <View style={{ flexDirection: "row", marginTop: 16 }}>
+              <TouchableOpacity style={[styles.primaryBtn, { flex: 1 }]} onPress={addPost}>
+                <Text style={{ color: "#fff" }}>Post</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.secondaryBtn, { flex: 1, marginLeft: 8 }]}
+                onPress={() => setCreateModal(false)}
+              >
+                <Text>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
-</Collapsible>
+      {/* Bottom Tab */}
+      <View style={styles.bottom}>
+        <TouchableOpacity style={styles.tabBtn} onPress={() => setTab("Home")}>
+          <Text style={tab === "Home" ? styles.tabActive : styles.tabText}>Home</Text>
+        </TouchableOpacity>
 
-<Collapsible summary="What if I need a change from the latest React Native version and it's not yet in an Expo SDK release?"
->
-We work closely with the team at Meta to ensure that any urgent fixes are included in the React Native version used by the latest Expo SDK. If your issue won't be cherrypicked into an existing release because it is more niche, or it involves a breaking change, then you have two options:
+        <TouchableOpacity style={styles.tabBtn} onPress={() => setTab("Chat")}>
+          <Text style={tab === "Chat" || tab === "ChatSingle" ? styles.tabActive : styles.tabText}>Chat</Text>
+        </TouchableOpacity>
 
-1. Use [`patch-package`](https://github.com/ds300/patch-package) to pull in the fix.
-2. Use a [pre-release version of the Expo SDK](#using-pre-release-versions). An ([example](https://expo.dev/changelog/react-native-78)).
+        <TouchableOpacity
+          style={[styles.tabBtn, { backgroundColor: "#111", borderRadius: 30, paddingHorizontal: 16 }]}
+          onPress={() => setCreateModal(true)}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Create</Text>
+        </TouchableOpacity>
 
-</Collapsible>
+        <TouchableOpacity style={styles.tabBtn} onPress={() => setTab("Trusted")}>
+          <Text style={tab === "Trusted" ? styles.tabActive : styles.tabText}>Trusted</Text>
+        </TouchableOpacity>
 
-<Collapsible summary="Can I use an older version of React Native with the latest Expo SDK?">
+        <TouchableOpacity style={styles.tabBtn} onPress={() => setTab("Profile")}>
+          <Text style={tab === "Profile" ? styles.tabActive : styles.tabText}>Profile</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
-Packages in the Expo SDK are intended to support the target React Native version for that SDK. Typically, they will not support older versions of React Native, but they may. When a new version of React Native is released, the latest versions of the Expo SDK packages are typically updated to support it. However, this may take weeks or more, depending on the extent of the changes in the release.
+const styles = StyleSheet.create({
+  header: { padding: 14, backgroundColor: "#fff", borderBottomWidth: 1, borderColor: "#eee" },
+  headerTitle: { fontSize: 20, fontWeight: "700" },
+  headerSub: { color: "#666", marginTop: 4, fontSize: 12 },
 
-</Collapsible>
+  container: { flex: 1, backgroundColor: "#fafafa" },
 
-## Support for Android and iOS versions
+  post: { backgroundColor: "#fff", marginBottom: 12, borderRadius: 8, overflow: "hidden", paddingBottom: 8 },
+  postHeader: { flexDirection: "row", alignItems: "center", padding: 12 },
+  avatar: { width: 48, height: 48, borderRadius: 24, marginRight: 12 },
+  avatarSmall: { width: 44, height: 44, borderRadius: 22, marginRight: 12, margin: 12 },
+  postAuthor: { fontWeight: "700" },
+  postTextSmall: { fontSize: 11, color: "#888" },
+  postBodyText: { paddingHorizontal: 12, paddingBottom: 8 },
+  postImage: { width: "100%", height: 200 },
 
-Each version of Expo SDK supports a minimum OS version of Android and iOS. For Android, the `compileSdkVersion` is defined which tells the [Gradle](https://developer.android.com/studio/build) which Android SDK version to use to compile the app. This also means that you can use the Android API features included in that SDK version and from the previous versions. For iOS, the [Xcode](https://developer.apple.com/news/upcoming-requirements/) tells the minimum Xcode SDK version to use to compile the app.
+  likeBtn: { padding: 8 },
 
-<AndroidIOSCompatibilityTable />
+  chatRow: { flexDirection: "row", alignItems: "center", padding: 12 },
+  chatName: { fontWeight: "700" },
+  chatLast: { color: "#666", marginTop: 4 },
 
-When deciding whether to upgrade your Expo SDK version, consider both Expo's SDK version and app store submission requirements, as described in the above table. Google Play Store and Apple App Store periodically increase their minimum required OS versions and API levels, which are required for new app submissions. Expo has no control over the app store requirements, and you should check [Google](https://developer.android.com/studio/build) and [Apple](https://developer.apple.com/news/upcoming-requirements/) for the current store submission requirements.
+  chatBubble: { marginVertical: 6, padding: 10, maxWidth: "80%", borderRadius: 14 },
+  chatFromMe: { backgroundColor: "#111", alignSelf: "flex-end" },
+  chatFromThem: { backgroundColor: "#eee", alignSelf: "flex-start" },
+
+  chatComposer: { flexDirection: "row", padding: 8, borderTopWidth: 1, borderColor: "#eee", alignItems: "center" },
+  chatInput: { flex: 1, padding: 10, backgroundColor: "#fff", borderRadius: 8, borderWidth: 1, borderColor: "#eee" },
+  sendBtn: { backgroundColor: "#111", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, marginLeft: 8 },
+
+  input: { borderWidth: 1, borderColor: "#ddd", padding: 10, borderRadius: 6, backgroundColor: "#fff" },
+
+  trustedRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 },
+
+  bigAvatar: { width: 110, height: 110, borderRadius: 55 },
+
+  primaryBtn: { backgroundColor: "#111", padding: 12, borderRadius: 8, alignItems: "center" },
+  secondaryBtn: { borderWidth: 1, borderColor: "#ddd", padding: 12, borderRadius: 8, alignItems: "center" },
+
+  bottom: {
+    height: 70,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderColor: "#eee",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingHorizontal: 6,
+  },
+  tabBtn: { padding: 8 },
+  tabText: { color: "#666" },
+  tabActive: { color: "#000", fontWeight: "700" },
+});
